@@ -1552,9 +1552,7 @@ impl App {
     pub fn tick_pull(&mut self) {
         self.enqueue_capability_probes_for_visible(24);
         self.tick_download_capability();
-        if self.pull_active.is_some() {
-            self.tick_count = self.tick_count.wrapping_add(1);
-        }
+        self.tick_count = self.tick_count.wrapping_add(1);
         let Some(handle) = &self.pull_active else {
             return;
         };
