@@ -10,6 +10,8 @@ use llmfit_core::providers::{
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
 
+use ratatui::widgets::TableState;
+
 use crate::theme::Theme;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -181,6 +183,7 @@ pub struct App {
 
     // Table state
     pub selected_row: usize,
+    pub table_state: TableState,
 
     // Detail view
     pub show_detail: bool,
@@ -409,6 +412,7 @@ impl App {
             sort_column: SortColumn::Score,
             sort_ascending: false,
             selected_row: 0,
+            table_state: TableState::default(),
             show_detail: false,
             show_compare: false,
             compare_mark_model: None,

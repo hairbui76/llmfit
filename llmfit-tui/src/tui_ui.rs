@@ -5,7 +5,7 @@ use ratatui::{
     text::{Line, Span},
     widgets::{
         Block, Borders, Cell, Clear, Paragraph, Row, Scrollbar, ScrollbarOrientation,
-        ScrollbarState, Table, TableState, Wrap,
+        ScrollbarState, Table, Wrap,
     },
 };
 
@@ -524,22 +524,11 @@ fn draw_table(frame: &mut Frame, app: &mut App, area: Rect, tc: &ThemeColors) {
     });
     let header = Row::new(header_cells).height(1);
 
-    let visible_rows = (area.height as usize).saturating_sub(3).max(1);
-    let total_rows = app.filtered_fits.len();
-    let viewport_start = if total_rows <= visible_rows || app.selected_row < visible_rows {
-        0
-    } else {
-        app.selected_row + 1 - visible_rows
-    };
-    let viewport_end = (viewport_start + visible_rows).min(total_rows);
-
     let visual_range = app.visual_range();
     let rows: Vec<Row> = app
         .filtered_fits
         .iter()
         .enumerate()
-        .skip(viewport_start)
-        .take(viewport_end.saturating_sub(viewport_start))
         .map(|(row_idx, &idx)| {
             let fit = &app.all_fits[idx];
             let color = fit_color(fit.fit_level, tc);
@@ -700,12 +689,13 @@ fn draw_table(frame: &mut Frame, app: &mut App, area: Rect, tc: &ThemeColors) {
         )
         .highlight_symbol("▶ ");
 
-    let mut state = TableState::default();
-    if !app.filtered_fits.is_empty() {
-        state.select(Some(app.selected_row.saturating_sub(viewport_start)));
+    if app.filtered_fits.is_empty() {
+        app.table_state.select(None);
+    } else {
+        app.table_state.select(Some(app.selected_row));
     }
 
-    frame.render_stateful_widget(table, area, &mut state);
+    frame.render_stateful_widget(table, area, &mut app.table_state);
 
     // Scrollbar
     if app.filtered_fits.len() > (area.height as usize).saturating_sub(3) {
