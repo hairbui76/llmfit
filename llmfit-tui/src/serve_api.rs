@@ -380,16 +380,8 @@ fn filtered_fits(
     }
 
     if let Some(ref lic_str) = query.license {
-        let allowed: Vec<String> = lic_str
-            .split(',')
-            .map(|s| s.trim().to_lowercase())
-            .collect();
         fits.retain(|f| {
-            f.model
-                .license
-                .as_ref()
-                .map(|l| allowed.contains(&l.to_lowercase()))
-                .unwrap_or(false)
+            llmfit_core::models::matches_license_filter(&f.model.license, lic_str)
         });
     }
 

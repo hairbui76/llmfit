@@ -254,6 +254,16 @@ pub struct LlmModel {
     pub license: Option<String>,
 }
 
+/// Returns true if a model's license matches any in the comma-separated filter string.
+/// Models without a license never match.
+pub fn matches_license_filter(license: &Option<String>, filter: &str) -> bool {
+    let allowed: Vec<String> = filter.split(',').map(|s| s.trim().to_lowercase()).collect();
+    license
+        .as_ref()
+        .map(|l| allowed.contains(&l.to_lowercase()))
+        .unwrap_or(false)
+}
+
 /// A known GGUF download source for a model on HuggingFace.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GgufSource {

@@ -431,14 +431,23 @@ impl App {
         ];
         let selected_params_buckets = vec![true; params_buckets.len()];
 
-        // Extract unique licenses
+        // Extract unique licenses (including "Unknown" for models without one)
         let mut model_licenses: Vec<String> = all_fits
             .iter()
-            .filter_map(|f| f.model.license.clone())
+            .map(|f| {
+                f.model
+                    .license
+                    .clone()
+                    .unwrap_or_else(|| "Unknown".to_string())
+            })
             .collect::<std::collections::BTreeSet<_>>()
             .into_iter()
             .collect();
-        model_licenses.sort();
+        // Move "Unknown" to the end if present
+        if let Some(pos) = model_licenses.iter().position(|l| l == "Unknown") {
+            let unknown = model_licenses.remove(pos);
+            model_licenses.push(unknown);
+        }
         let selected_licenses = vec![true; model_licenses.len()];
 
         let filtered_count = all_fits.len();
@@ -690,14 +699,15 @@ impl App {
                     if all_selected || self.licenses.is_empty() {
                         true
                     } else {
-                        match &fit.model.license {
-                            Some(lic) => self
-                                .licenses
-                                .iter()
-                                .zip(self.selected_licenses.iter())
-                                .any(|(l, &sel)| sel && *l == *lic),
-                            None => false,
-                        }
+                        let model_lic = fit
+                            .model
+                            .license
+                            .as_deref()
+                            .unwrap_or("Unknown");
+                        self.licenses
+                            .iter()
+                            .zip(self.selected_licenses.iter())
+                            .any(|(l, &sel)| sel && l == model_lic)
                     }
                 };
 
