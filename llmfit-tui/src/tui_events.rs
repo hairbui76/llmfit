@@ -28,6 +28,13 @@ pub fn handle_events(app: &mut App) -> std::io::Result<bool> {
             InputMode::QuantPopup => handle_quant_popup_mode(app, key),
             InputMode::RunModePopup => handle_run_mode_popup_mode(app, key),
             InputMode::ParamsBucketPopup => handle_params_bucket_popup_mode(app, key),
+            InputMode::LicensePopup => handle_license_popup_mode(app, key),
+            InputMode::RuntimePopup => handle_runtime_popup_mode(app, key),
+            InputMode::HelpPopup => handle_help_popup_mode(app, key),
+            InputMode::Simulation => handle_simulation_mode(app, key),
+            InputMode::AdvancedConfig => handle_advanced_config_mode(app, key),
+            InputMode::DownloadManager => handle_download_manager_mode(app, key),
+            InputMode::FilterPopup => handle_filter_popup_mode(app, key),
         }
         return Ok(true);
     }
@@ -38,13 +45,16 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
     match key.code {
         // Quit
         KeyCode::Char('q') | KeyCode::Esc => {
-            if app.show_multi_compare {
+            if app.show_downloads {
+                app.close_downloads();
+            } else if app.show_multi_compare {
                 app.close_multi_compare();
             } else if app.show_detail {
                 app.show_detail = false;
             } else if app.show_compare {
                 app.show_compare = false;
             } else {
+                app.save_filters();
                 app.should_quit = true;
             }
         }
@@ -76,8 +86,14 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
         // Fit filter
         KeyCode::Char('f') => app.cycle_fit_filter(),
 
+        // Filter popup (range filters, sort direction, fit)
+        KeyCode::Char('F') => app.open_filter_popup(),
+
         // Availability filter
         KeyCode::Char('a') => app.cycle_availability_filter(),
+
+        // TP compatibility filter
+        KeyCode::Char('T') => app.cycle_tp_filter(),
 
         // Sort column
         KeyCode::Char('s') => app.cycle_sort_column(),
@@ -92,6 +108,10 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
         KeyCode::Char('P') => app.open_provider_popup(),
         KeyCode::Char('U') => app.open_use_case_popup(),
         KeyCode::Char('C') => app.open_capability_popup(),
+        KeyCode::Char('L') => app.open_license_popup(),
+        KeyCode::Char('R') => app.open_runtime_popup(),
+        KeyCode::Char('S') => app.open_simulation_popup(),
+        KeyCode::Char('h') => app.open_help_popup(),
 
         // Installed-first sort toggle (any provider)
         KeyCode::Char('i')
@@ -125,6 +145,12 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
             app.refresh_installed()
         }
 
+        // Download manager view
+        KeyCode::Char('D') => app.toggle_downloads(),
+
+        // Advanced Config popup
+        KeyCode::Char('A') => app.open_advanced_config_popup(),
+
         // Detail view
         KeyCode::Enter => app.toggle_detail(),
 
@@ -132,6 +158,7 @@ fn handle_normal_mode(app: &mut App, key: KeyEvent) {
         KeyCode::Char('m') => app.mark_selected_for_compare(),
         KeyCode::Char('c') => app.toggle_compare_view(),
         KeyCode::Char('x') => app.clear_compare_mark(),
+        KeyCode::Char('y') => app.copy_selected_model_name(),
 
         _ => {}
     }
@@ -316,6 +343,256 @@ fn handle_params_bucket_popup_mode(app: &mut App, key: KeyEvent) {
         KeyCode::Char(' ') | KeyCode::Enter => app.params_bucket_popup_toggle(),
 
         KeyCode::Char('a') => app.params_bucket_popup_select_all(),
+
+        _ => {}
+    }
+}
+
+fn handle_license_popup_mode(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('L') | KeyCode::Char('q') => app.close_license_popup(),
+
+        KeyCode::Up | KeyCode::Char('k') => app.license_popup_up(),
+        KeyCode::Down | KeyCode::Char('j') => app.license_popup_down(),
+
+        KeyCode::Char(' ') | KeyCode::Enter => app.license_popup_toggle(),
+
+        KeyCode::Char('a') => app.license_popup_select_all(),
+
+        _ => {}
+    }
+}
+
+fn handle_runtime_popup_mode(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('R') | KeyCode::Char('q') => app.close_runtime_popup(),
+
+        KeyCode::Up | KeyCode::Char('k') => app.runtime_popup_up(),
+        KeyCode::Down | KeyCode::Char('j') => app.runtime_popup_down(),
+
+        KeyCode::Char(' ') | KeyCode::Enter => app.runtime_popup_toggle(),
+
+        KeyCode::Char('a') => app.runtime_popup_select_all(),
+
+        _ => {}
+    }
+}
+
+fn handle_help_popup_mode(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('h') | KeyCode::Char('q') => app.close_help_popup(),
+        KeyCode::Up | KeyCode::Char('k') => {
+            if app.help_scroll > 0 {
+                app.help_scroll -= 1;
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            app.help_scroll += 1;
+        }
+        _ => {}
+    }
+}
+
+fn handle_simulation_mode(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => app.close_simulation_popup(),
+
+        // Apply simulation
+        KeyCode::Enter => app.apply_simulation(),
+
+        // Reset to real hardware
+        KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.reset_simulation();
+            app.close_simulation_popup();
+        }
+
+        // Field navigation
+        KeyCode::Tab | KeyCode::Down | KeyCode::Char('j') => app.sim_next_field(),
+        KeyCode::BackTab | KeyCode::Up | KeyCode::Char('k') => app.sim_prev_field(),
+
+        // Cursor movement within field
+        KeyCode::Left => app.sim_cursor_left(),
+        KeyCode::Right => app.sim_cursor_right(),
+
+        // Editing
+        KeyCode::Backspace => app.sim_backspace(),
+        KeyCode::Delete => app.sim_delete(),
+        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.sim_clear_field()
+        }
+
+        // Character input (digits and decimal point)
+        KeyCode::Char(c) if c.is_ascii_digit() || c == '.' => app.sim_input(c),
+
+        _ => {}
+    }
+}
+
+fn handle_advanced_config_mode(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => app.close_advanced_config_popup(),
+
+        // Apply config changes
+        KeyCode::Enter => app.apply_advanced_config(),
+
+        // Field navigation
+        KeyCode::Tab | KeyCode::Down | KeyCode::Char('j') => app.adv_config_next_field(),
+        KeyCode::BackTab | KeyCode::Up | KeyCode::Char('k') => app.adv_config_prev_field(),
+
+        // Cursor movement within field
+        KeyCode::Left => app.adv_config_cursor_left(),
+        KeyCode::Right => app.adv_config_cursor_right(),
+
+        // Editing
+        KeyCode::Backspace => app.adv_config_backspace(),
+        KeyCode::Delete => app.adv_config_delete(),
+        KeyCode::Char('r') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.reset_advanced_config()
+        }
+        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            app.adv_config_clear_field()
+        }
+
+        // Character input (digits and decimal point)
+        KeyCode::Char(c) if c.is_ascii_digit() || c == '.' => app.adv_config_input(c),
+
+        _ => {}
+    }
+}
+
+fn handle_download_manager_mode(app: &mut App, key: KeyEvent) {
+    use crate::tui_app::DownloadManagerFocus;
+
+    // Handle delete confirmation first
+    if app.dm_confirm_delete {
+        match key.code {
+            KeyCode::Char('y') => {
+                app.delete_selected_download();
+                app.dm_confirm_delete = false;
+            }
+            _ => app.dm_confirm_delete = false,
+        }
+        return;
+    }
+
+    // Handle directory editing mode
+    if app.dm_editing_dir {
+        match key.code {
+            KeyCode::Esc => {
+                app.dm_editing_dir = false;
+            }
+            KeyCode::Enter => {
+                app.apply_download_dir();
+                app.dm_editing_dir = false;
+            }
+            KeyCode::Backspace => {
+                if app.dm_dir_cursor > 0 {
+                    app.dm_dir_cursor -= 1;
+                    app.dm_dir_input.remove(app.dm_dir_cursor);
+                }
+            }
+            KeyCode::Left => {
+                if app.dm_dir_cursor > 0 {
+                    app.dm_dir_cursor -= 1;
+                }
+            }
+            KeyCode::Right => {
+                if app.dm_dir_cursor < app.dm_dir_input.len() {
+                    app.dm_dir_cursor += 1;
+                }
+            }
+            KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                app.dm_dir_input.clear();
+                app.dm_dir_cursor = 0;
+            }
+            KeyCode::Char(c) => {
+                app.dm_dir_input.insert(app.dm_dir_cursor, c);
+                app.dm_dir_cursor += 1;
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    match key.code {
+        // Close
+        KeyCode::Esc | KeyCode::Char('D') | KeyCode::Char('q') => app.close_downloads(),
+
+        // Focus cycling
+        KeyCode::Tab => app.dm_focus = app.dm_focus.next(),
+        KeyCode::BackTab => app.dm_focus = app.dm_focus.prev(),
+
+        // Navigation within history
+        KeyCode::Up | KeyCode::Char('k') if app.dm_focus == DownloadManagerFocus::History => {
+            if app.dm_history_cursor > 0 {
+                app.dm_history_cursor -= 1;
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') if app.dm_focus == DownloadManagerFocus::History => {
+            let len = app.download_history.records.len();
+            if len > 0 && app.dm_history_cursor < len - 1 {
+                app.dm_history_cursor += 1;
+            }
+        }
+
+        // Delete model
+        KeyCode::Char('x') if app.dm_focus == DownloadManagerFocus::History => {
+            if !app.download_history.records.is_empty() {
+                app.dm_confirm_delete = true;
+            }
+        }
+
+        // Edit download directory
+        KeyCode::Char('e') if app.dm_focus == DownloadManagerFocus::Config => {
+            app.start_editing_download_dir();
+        }
+
+        _ => {}
+    }
+}
+
+fn handle_filter_popup_mode(app: &mut App, key: KeyEvent) {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('q') => app.close_filter_popup(),
+
+        KeyCode::Enter => app.apply_filter_popup(),
+
+        // Field navigation
+        KeyCode::Tab | KeyCode::Down => app.filter_next_field(),
+        KeyCode::BackTab | KeyCode::Up => app.filter_prev_field(),
+
+        // Cursor movement within field
+        KeyCode::Left => app.filter_cursor_left(),
+        KeyCode::Right => app.filter_cursor_right(),
+
+        // Editing
+        KeyCode::Backspace => app.filter_backspace(),
+        KeyCode::Delete => app.filter_delete(),
+        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            if matches!(
+                app.filter_field,
+                crate::tui_app::FilterPopupField::SortDirection
+                    | crate::tui_app::FilterPopupField::FitFilter
+            ) {
+                return;
+            }
+            app.filter_clear_active_input();
+        }
+
+        // Sort direction toggle
+        KeyCode::Char(' ')
+            if app.filter_field == crate::tui_app::FilterPopupField::SortDirection =>
+        {
+            app.filter_toggle_sort_direction()
+        }
+
+        // Fit filter cycling
+        KeyCode::Char(' ') if app.filter_field == crate::tui_app::FilterPopupField::FitFilter => {
+            app.cycle_filter_fit()
+        }
+
+        // Numeric input
+        KeyCode::Char(c) if c.is_ascii_digit() || c == '.' => app.filter_input(c),
 
         _ => {}
     }

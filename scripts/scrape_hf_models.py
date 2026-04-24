@@ -104,6 +104,9 @@ TARGET_MODELS = [
     "Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-GGUF",
     "Jackrong/Qwen3.5-9B-Claude-4.6-Opus-Reasoning-Distilled-GGUF",
     "Jackrong/Qwen3.5-35B-A3B-Claude-4.6-Opus-Reasoning-Distilled",
+    # Qwen 3.6 (native multimodal + hybrid attention, Apr 2026)
+    "Qwen/Qwen3.6-27B",
+    "Qwen/Qwen3.6-35B-A3B",
     # Microsoft Phi
     "microsoft/phi-3-mini-4k-instruct",
     "microsoft/Phi-3-medium-14b-instruct",
@@ -121,6 +124,11 @@ TARGET_MODELS = [
     "google/gemma-3-4b-it",
     "google/gemma-3-12b-it",
     "google/gemma-3-27b-it",
+    # Google Gemma 4
+    "google/gemma-4-E2B-it",
+    "google/gemma-4-E4B-it",
+    "google/gemma-4-31B-it",
+    "google/gemma-4-26B-A4B-it",
     # DeepSeek
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
     "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
@@ -301,6 +309,7 @@ MOE_ACTIVE_PARAMS = {
     "Qwen/Qwen3.5-35B-A3B": 3_000_000_000,
     "Qwen/Qwen3.5-122B-A10B": 10_000_000_000,
     "Qwen/Qwen3.5-397B-A17B": 17_000_000_000,
+    "Qwen/Qwen3.6-35B-A3B": 3_000_000_000,
     "meta-llama/Llama-4-Scout-17B-16E-Instruct": 17_000_000_000,
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct": 17_000_000_000,
     "xai-org/grok-1": 86_000_000_000,
@@ -313,6 +322,7 @@ MOE_ACTIVE_PARAMS = {
     "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16": 3_000_000_000,
     "LiquidAI/LFM2-8B-A1B": 1_500_000_000,
     "LiquidAI/LFM2-24B-A2B": 2_300_000_000,  # 23.8B total, 2.3B active
+    "google/gemma-4-26B-A4B-it": 4_000_000_000,
 }
 
 
@@ -384,12 +394,17 @@ def detect_moe(repo_id: str, config: dict | None, architecture: str,
         "active_parameters": None,
     }
 
-    # Check config.json for MoE indicators
+    # Check config.json for MoE indicators (also check text_config for
+    # multimodal models like Llama 4 that nest MoE fields there)
     num_experts = None
     active_experts = None
     if config:
         num_experts = config.get("num_local_experts") or config.get("num_experts")
-        active_experts = config.get("num_experts_per_tok")
+        active_experts = config.get("num_experts_per_tok") or config.get("top_k_experts")
+        if (not num_experts or not active_experts) and isinstance(config.get("text_config"), dict):
+            tc = config["text_config"]
+            num_experts = num_experts or tc.get("num_local_experts") or tc.get("num_experts")
+            active_experts = active_experts or tc.get("num_experts_per_tok") or tc.get("top_k_experts")
 
     # Check if architecture is in known MoE configs
     if architecture in MOE_CONFIGS:
@@ -458,20 +473,36 @@ def infer_context_length(config: dict | None) -> int:
         "sliding_window",
     ]
 
+    def _extract_from(cfg: dict) -> int | None:
+        for key in keys_to_check:
+            if key in cfg:
+                val = cfg[key]
+                if isinstance(val, int) and val > 0:
+                    return val
+        return None
+
+    def _apply_rope_scaling(val: int, cfg: dict) -> int:
+        """Apply RoPE scaling factor when present (e.g., Llama 4 Maverick
+        has max_position_embeddings=4096 but a rope_scaling factor of 256,
+        giving an effective context of 1M tokens)."""
+        rope = cfg.get("rope_scaling")
+        if isinstance(rope, dict) and isinstance(rope.get("factor"), (int, float)):
+            scaled = int(val * rope["factor"])
+            if scaled > val:
+                return scaled
+        return val
+
     # Check top-level config
-    for key in keys_to_check:
-        if key in config:
-            val = config[key]
-            if isinstance(val, int) and val > 0:
-                return val
+    val = _extract_from(config)
+    if val is not None:
+        return _apply_rope_scaling(val, config)
 
     # For multimodal models (e.g., Qwen3.5), check text_config
     if "text_config" in config and isinstance(config["text_config"], dict):
-        for key in keys_to_check:
-            if key in config["text_config"]:
-                val = config["text_config"][key]
-                if isinstance(val, int) and val > 0:
-                    return val
+        tc = config["text_config"]
+        val = _extract_from(tc)
+        if val is not None:
+            return _apply_rope_scaling(val, tc)
 
     return 4096
 
@@ -525,6 +556,7 @@ def infer_capabilities(repo_id: str, pipeline_tag: str | None, use_case: str) ->
     # Vision
     if (
         pipeline_tag == "image-text-to-text"
+        or pipeline_tag == "any-to-any"
         or "vision" in rid
         or "-vl-" in rid
         or rid.endswith("-vl")
@@ -546,6 +578,8 @@ def infer_capabilities(repo_id: str, pipeline_tag: str | None, use_case: str) ->
         or ("llama-3" in rid and "instruct" in rid)
         or ("mistral" in rid and "instruct" in rid)
         or "hermes" in rid
+        or ("gemma-3" in rid and rid.endswith("-it"))
+        or ("gemma-4" in rid and rid.endswith("-it"))
     ):
         caps.append("tool_use")
 
@@ -657,6 +691,17 @@ def scrape_model(repo_id: str) -> dict | None:
 
     use_case_str = infer_use_case(repo_id, pipeline_tag, config)
 
+    # Architecture metadata for the precise KV cache formula. All optional;
+    # absent fields cause the Rust side to fall back to the linear approx.
+    num_hidden_layers = (full_config or {}).get("num_hidden_layers")
+    num_attention_heads = (full_config or {}).get("num_attention_heads")
+    num_key_value_heads = (full_config or {}).get("num_key_value_heads") or num_attention_heads
+    head_dim = (full_config or {}).get("head_dim")
+    if head_dim is None and num_attention_heads:
+        hidden_size = (full_config or {}).get("hidden_size")
+        if hidden_size:
+            head_dim = hidden_size // num_attention_heads
+
     result = {
         "name": repo_id,
         "provider": extract_provider(repo_id),
@@ -675,6 +720,10 @@ def scrape_model(repo_id: str) -> dict | None:
         "hf_downloads": info.get("downloads", 0),
         "hf_likes": info.get("likes", 0),
         "release_date": (info.get("createdAt") or "")[:10] or None,
+        "num_hidden_layers": num_hidden_layers,
+        "num_attention_heads": num_attention_heads,
+        "num_key_value_heads": num_key_value_heads,
+        "head_dim": head_dim,
     }
 
     # Add MoE fields if detected
@@ -894,7 +943,7 @@ def enrich_gguf_sources(models: list[dict], threads: int = 1) -> int:
 # ---------------------------------------------------------------------------
 
 # Pipeline tags to search for discoverable models
-DISCOVER_PIPELINES = ["text-generation", "text2text-generation"]
+DISCOVER_PIPELINES = ["text-generation", "text2text-generation", "image-text-to-text"]
 
 # Orgs to skip — these publish many fine-tunes that clutter the list
 SKIP_ORGS = {
@@ -909,28 +958,34 @@ SKIP_ORGS = {
 }
 
 
-def discover_trending_models(limit: int = 30, min_downloads: int = 10000) -> list[str]:
+def discover_trending_models(limit: int = 30, min_downloads: int = 10000) -> list[dict]:
     """Query HuggingFace API for top text-generation models by download count.
 
-    Returns a list of repo IDs (e.g. ["mistralai/Mistral-7B-v0.1", ...])
-    that are NOT already in TARGET_MODELS.
+    Uses ?expand=safetensors to get parameter counts directly from the listing
+    API, avoiding individual API calls per model (per HF team recommendation).
+
+    Returns a list of dicts with model listing data (including safetensors
+    metadata) for models NOT already in TARGET_MODELS.
     """
     curated = set(TARGET_MODELS)
     discovered = []
+    seen_ids = set()
 
     for pipeline in DISCOVER_PIPELINES:
         # Fetch more than we need since we'll filter heavily
-        fetch_limit = limit * 5
+        fetch_limit = min(limit * 8, 10000)  # HF API max is 10000
         url = (
             f"{HF_API}?"
             f"pipeline_tag={pipeline}&"
             f"sort=downloads&"
             f"direction=-1&"
-            f"limit={fetch_limit}"
+            f"limit={fetch_limit}&"
+            f"expand[]=safetensors&"
+            f"expand[]=config"
         )
         req = urllib.request.Request(url, headers=_auth_headers())
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=60) as resp:
                 models = json.loads(resp.read().decode())
         except Exception as e:
             print(f"  ⚠ Failed to fetch trending {pipeline} models: {e}",
@@ -942,13 +997,10 @@ def discover_trending_models(limit: int = 30, min_downloads: int = 10000) -> lis
             if not repo_id or "/" not in repo_id:
                 continue
 
-            # Skip if already curated
-            if repo_id in curated:
+            # Skip if already curated or seen
+            if repo_id in curated or repo_id in seen_ids:
                 continue
-
-            # Skip already discovered
-            if repo_id in discovered:
-                continue
+            seen_ids.add(repo_id)
 
             # Skip known repack / converter orgs
             org = repo_id.split("/")[0]
@@ -965,12 +1017,20 @@ def discover_trending_models(limit: int = 30, min_downloads: int = 10000) -> lis
             if tags & {"gguf", "adapter", "merge", "lora", "qlora"}:
                 continue
 
-            # Must have safetensors tag (listing API doesn't include param counts,
-            # but the safetensors tag means scrape_model() will find params)
-            if "safetensors" not in tags:
-                continue
+            # Check for actual parameter count from expand=safetensors
+            # (replaces old safetensors tag check — many models have data but no tag)
+            safetensors = m.get("safetensors", {})
+            total_params = safetensors.get("total")
+            if not total_params:
+                params_by_dtype = safetensors.get("parameters", {})
+                if params_by_dtype:
+                    total_params = max(params_by_dtype.values())
+            if not total_params:
+                continue  # no param data available
 
-            discovered.append(repo_id)
+            # Attach param count for downstream use
+            m["_total_params"] = total_params
+            discovered.append(m)
             if len(discovered) >= limit:
                 break
 
@@ -978,6 +1038,60 @@ def discover_trending_models(limit: int = 30, min_downloads: int = 10000) -> lis
             break
 
     return discovered[:limit]
+
+
+def _build_discovered_model(listing: dict) -> dict | None:
+    """Build model dict from a listing returned by discover_trending_models.
+
+    Only fetches config.json for accurate context length; all other metadata
+    comes from the listing data already obtained via expand=safetensors.
+    """
+    repo_id = listing["id"]
+    total_params = listing["_total_params"]
+    config = listing.get("config", {})
+    pipeline_tag = listing.get("pipeline_tag")
+
+    full_config = fetch_config_json(repo_id)
+
+    model_format, default_quant = detect_quant_format(repo_id, full_config)
+    context_length = (infer_context_length(full_config) if full_config
+                      else infer_context_length(config))
+
+    min_ram, rec_ram = estimate_ram(total_params, default_quant)
+    min_vram = estimate_vram(total_params, default_quant)
+
+    architecture = config.get("model_type", "unknown")
+    moe_info = detect_moe(repo_id, full_config, architecture, total_params)
+    use_case_str = infer_use_case(repo_id, pipeline_tag, config)
+
+    model = {
+        "name": repo_id,
+        "provider": extract_provider(repo_id),
+        "parameter_count": format_param_count(total_params),
+        "parameters_raw": total_params,
+        "min_ram_gb": min_ram,
+        "recommended_ram_gb": rec_ram,
+        "min_vram_gb": min_vram,
+        "quantization": default_quant,
+        "format": model_format,
+        "context_length": context_length,
+        "use_case": use_case_str,
+        "capabilities": infer_capabilities(repo_id, pipeline_tag, use_case_str),
+        "pipeline_tag": pipeline_tag or "unknown",
+        "architecture": architecture,
+        "hf_downloads": listing.get("downloads", 0),
+        "hf_likes": listing.get("likes", 0),
+        "release_date": (listing.get("createdAt") or "")[:10] or None,
+        "_discovered": True,
+    }
+
+    if moe_info["is_moe"]:
+        model["is_moe"] = True
+        model["num_experts"] = moe_info["num_experts"]
+        model["active_experts"] = moe_info["active_experts"]
+        model["active_parameters"] = moe_info["active_parameters"]
+
+    return model
 
 
 def main():
@@ -1105,7 +1219,8 @@ def main():
             "min_ram_gb": 6.7, "recommended_ram_gb": 11.2, "min_vram_gb": 6.1,
             "quantization": "Q4_K_M", "context_length": 131072,
             "use_case": "Multimodal, vision and text",
-            "pipeline_tag": "text-generation", "architecture": "gemma3",
+            "capabilities": ["vision", "tool_use"],
+            "pipeline_tag": "image-text-to-text", "architecture": "gemma3",
             "hf_downloads": 0, "hf_likes": 0, "release_date": None,
         },
         {
@@ -1660,6 +1775,49 @@ def main():
             "pipeline_tag": "image-text-to-text", "architecture": "gemma3n",
             "hf_downloads": 0, "hf_likes": 0, "release_date": "2025-06-25",
         },
+        # Google Gemma 4 family
+        {
+            "name": "google/gemma-4-E2B-it",
+            "provider": "Google", "parameter_count": "5.1B",
+            "parameters_raw": 5100000000,
+            "min_ram_gb": 2.9, "recommended_ram_gb": 4.8, "min_vram_gb": 2.6,
+            "quantization": "Q4_K_M", "context_length": 131072,
+            "use_case": "Multimodal, on-device (effective 2B)",
+            "pipeline_tag": "image-text-to-text", "architecture": "gemma4",
+            "hf_downloads": 0, "hf_likes": 0, "release_date": "2025-07-30",
+        },
+        {
+            "name": "google/gemma-4-E4B-it",
+            "provider": "Google", "parameter_count": "8B",
+            "parameters_raw": 8000000000,
+            "min_ram_gb": 4.5, "recommended_ram_gb": 7.5, "min_vram_gb": 4.1,
+            "quantization": "Q4_K_M", "context_length": 131072,
+            "use_case": "Multimodal, on-device (effective 4B)",
+            "pipeline_tag": "image-text-to-text", "architecture": "gemma4",
+            "hf_downloads": 0, "hf_likes": 0, "release_date": "2025-07-30",
+        },
+        {
+            "name": "google/gemma-4-31B-it",
+            "provider": "Google", "parameter_count": "31B",
+            "parameters_raw": 31000000000,
+            "min_ram_gb": 17.3, "recommended_ram_gb": 28.9, "min_vram_gb": 15.9,
+            "quantization": "Q4_K_M", "context_length": 262144,
+            "use_case": "Multimodal, vision and text",
+            "pipeline_tag": "image-text-to-text", "architecture": "gemma4",
+            "hf_downloads": 0, "hf_likes": 0, "release_date": "2025-07-30",
+        },
+        {
+            "name": "google/gemma-4-26B-A4B-it",
+            "provider": "Google", "parameter_count": "26B",
+            "parameters_raw": 26000000000,
+            "min_ram_gb": 14.5, "recommended_ram_gb": 24.2, "min_vram_gb": 13.3,
+            "quantization": "Q4_K_M", "context_length": 262144,
+            "use_case": "Multimodal, vision and text",
+            "pipeline_tag": "image-text-to-text", "architecture": "gemma4",
+            "is_moe": True, "num_experts": 128, "active_experts": 8,
+            "active_parameters": 4_000_000_000,
+            "hf_downloads": 0, "hf_likes": 0, "release_date": "2025-07-30",
+        },
         # Qwen3-Coder-Next (80B MoE, 3B active, Jan 2026)
         {
             "name": "Qwen/Qwen3-Coder-Next",
@@ -2015,30 +2173,30 @@ def main():
         )
         print(f"  Found {len(trending)} new models not in curated list\n")
 
-        discover_candidates = [r for r in trending if r not in scraped_names]
+        candidates = [l for l in trending if l["id"] not in scraped_names]
 
         if args.threads <= 1:
-            for i, repo_id in enumerate(discover_candidates, 1):
-                print(f"[discover {i}/{len(discover_candidates)}] {repo_id}...")
-                model = scrape_model(repo_id)
+            for i, listing in enumerate(candidates, 1):
+                repo_id = listing["id"]
+                print(f"[discover {i}/{len(candidates)}] {repo_id}...")
+                model = _build_discovered_model(listing)
                 if model:
-                    model["_discovered"] = True  # mark as auto-discovered
                     print(f"  ✓ {model['parameter_count']} params, "
                           f"{model['hf_downloads']:,} downloads, "
                           f"ctx {model['context_length']}")
                     results.append(model)
                     scraped_names.add(repo_id)
                     discovered_count += 1
-                time.sleep(0.3)
+                time.sleep(0.15)
         else:
             with concurrent.futures.ThreadPoolExecutor(max_workers=args.threads) as executor:
-                for i, (repo_id, model) in enumerate(
-                    zip(discover_candidates, executor.map(scrape_model, discover_candidates)),
+                for i, (listing, model) in enumerate(
+                    zip(candidates, executor.map(_build_discovered_model, candidates)),
                     1,
                 ):
-                    print(f"[discover {i}/{len(discover_candidates)}] {repo_id}...")
+                    repo_id = listing["id"]
+                    print(f"[discover {i}/{len(candidates)}] {repo_id}...")
                     if model:
-                        model["_discovered"] = True  # mark as auto-discovered
                         print(f"  ✓ {model['parameter_count']} params, "
                               f"{model['hf_downloads']:,} downloads, "
                               f"ctx {model['context_length']}")

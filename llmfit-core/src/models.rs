@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
 /// Quantization levels ordered from best quality to most compressed.
@@ -20,6 +18,12 @@ pub fn quant_bpp(quant: &str) -> f64 {
         "Q4_K_M" | "Q4_0" => 0.58,
         "Q3_K_M" => 0.48,
         "Q2_K" => 0.37,
+        "UD-Q2_K_XL" | "UD-Q2_K_L" | "UD-Q2_K_M" | "UD-Q2_K_S" => 0.37,
+        "UD-Q3_K_XL" | "UD-Q3_K_L" | "UD-Q3_K_M" | "UD-Q3_K_S" => 0.48,
+        "UD-Q4_K_XL" | "UD-Q4_K_L" | "UD-Q4_K_M" | "UD-Q4_K_S" => 0.58,
+        "UD-Q5_K_XL" | "UD-Q5_K_L" | "UD-Q5_K_M" | "UD-Q5_K_S" => 0.68,
+        "UD-Q6_K_XL" | "UD-Q6_K_L" | "UD-Q6_K_M" | "UD-Q6_K_S" => 0.80,
+        "UD-Q8_K_XL" | "UD-Q8_K_L" | "UD-Q8_K_M" | "UD-Q8_K_S" => 1.05,
         "mlx-4bit" => 0.55,
         "mlx-8bit" => 1.0,
         "AWQ-4bit" => 0.5,
@@ -40,6 +44,12 @@ pub fn quant_speed_multiplier(quant: &str) -> f64 {
         "Q4_K_M" | "Q4_0" => 1.15,
         "Q3_K_M" => 1.25,
         "Q2_K" => 1.35,
+        "UD-Q2_K_XL" | "UD-Q2_K_L" | "UD-Q2_K_M" | "UD-Q2_K_S" => 1.35,
+        "UD-Q3_K_XL" | "UD-Q3_K_L" | "UD-Q3_K_M" | "UD-Q3_K_S" => 1.25,
+        "UD-Q4_K_XL" | "UD-Q4_K_L" | "UD-Q4_K_M" | "UD-Q4_K_S" => 1.15,
+        "UD-Q5_K_XL" | "UD-Q5_K_L" | "UD-Q5_K_M" | "UD-Q5_K_S" => 1.0,
+        "UD-Q6_K_XL" | "UD-Q6_K_L" | "UD-Q6_K_M" | "UD-Q6_K_S" => 0.95,
+        "UD-Q8_K_XL" | "UD-Q8_K_L" | "UD-Q8_K_M" | "UD-Q8_K_S" => 0.8,
         "mlx-4bit" => 1.15,
         "mlx-8bit" => 0.85,
         "AWQ-4bit" | "GPTQ-Int4" => 1.2,
@@ -59,6 +69,12 @@ pub fn quant_bytes_per_param(quant: &str) -> f64 {
         "Q4_K_M" | "Q4_0" => 0.5,
         "Q3_K_M" => 0.375,
         "Q2_K" => 0.25,
+        "UD-Q2_K_XL" | "UD-Q2_K_L" | "UD-Q2_K_M" | "UD-Q2_K_S" => 0.25,
+        "UD-Q3_K_XL" | "UD-Q3_K_L" | "UD-Q3_K_M" | "UD-Q3_K_S" => 0.375,
+        "UD-Q4_K_XL" | "UD-Q4_K_L" | "UD-Q4_K_M" | "UD-Q4_K_S" => 0.5,
+        "UD-Q5_K_XL" | "UD-Q5_K_L" | "UD-Q5_K_M" | "UD-Q5_K_S" => 0.625,
+        "UD-Q6_K_XL" | "UD-Q6_K_L" | "UD-Q6_K_M" | "UD-Q6_K_S" => 0.75,
+        "UD-Q8_K_XL" | "UD-Q8_K_L" | "UD-Q8_K_M" | "UD-Q8_K_S" => 1.0,
         "mlx-4bit" => 0.5,
         "mlx-8bit" => 1.0,
         "AWQ-4bit" | "GPTQ-Int4" => 0.5,
@@ -77,6 +93,12 @@ pub fn quant_quality_penalty(quant: &str) -> f64 {
         "Q4_K_M" | "Q4_0" => -5.0,
         "Q3_K_M" => -8.0,
         "Q2_K" => -12.0,
+        "UD-Q2_K_XL" | "UD-Q2_K_L" | "UD-Q2_K_M" | "UD-Q2_K_S" => -12.0,
+        "UD-Q3_K_XL" | "UD-Q3_K_L" | "UD-Q3_K_M" | "UD-Q3_K_S" => -8.0,
+        "UD-Q4_K_XL" | "UD-Q4_K_L" | "UD-Q4_K_M" | "UD-Q4_K_S" => -5.0,
+        "UD-Q5_K_XL" | "UD-Q5_K_L" | "UD-Q5_K_M" | "UD-Q5_K_S" => -2.0,
+        "UD-Q6_K_XL" | "UD-Q6_K_L" | "UD-Q6_K_M" | "UD-Q6_K_S" => -1.0,
+        "UD-Q8_K_XL" | "UD-Q8_K_L" | "UD-Q8_K_M" | "UD-Q8_K_S" => 0.0,
         "mlx-4bit" => -4.0,
         "mlx-8bit" => 0.0,
         "AWQ-4bit" => -3.0,
@@ -136,7 +158,9 @@ impl Capability {
                 || name.contains("command-r")
                 || (name.contains("llama-3") && name.contains("instruct"))
                 || (name.contains("mistral") && name.contains("instruct"))
-                || name.contains("hermes"))
+                || name.contains("hermes")
+                || (name.contains("gemma-3") && name.ends_with("-it"))
+                || (name.contains("gemma-4") && name.ends_with("-it")))
         {
             caps.push(Capability::ToolUse);
         }
@@ -245,6 +269,164 @@ pub struct LlmModel {
     /// Model weight format (gguf, awq, gptq, mlx, safetensors)
     #[serde(default)]
     pub format: ModelFormat,
+    /// Number of attention heads (for tensor-parallelism compatibility checks).
+    #[serde(default)]
+    pub num_attention_heads: Option<u32>,
+    /// Number of key-value heads for GQA (defaults to num_attention_heads if None).
+    #[serde(default)]
+    pub num_key_value_heads: Option<u32>,
+    /// Total number of transformer layers. Used by the precise KV cache formula.
+    #[serde(default)]
+    pub num_hidden_layers: Option<u32>,
+    /// Per-head dimension. Used by the precise KV cache formula. When absent,
+    /// derived as `hidden_size / num_attention_heads` if both are known, or
+    /// a name based heuristic otherwise.
+    #[serde(default)]
+    pub head_dim: Option<u32>,
+    /// Attention layer composition for hybrid models (full attention + linear /
+    /// Mamba style layers). When None, all layers are assumed to be full
+    /// attention. Used by KV cache compression schemes (e.g. TurboQuant) that
+    /// only apply to full attention layers.
+    #[serde(default)]
+    pub attention_layout: Option<AttentionLayout>,
+    /// Model license (e.g. "apache-2.0", "mit", "llama3.1")
+    #[serde(default)]
+    pub license: Option<String>,
+    /// Hidden dimension size (d_model). Used for MoE bandwidth decomposition.
+    #[serde(default)]
+    pub hidden_size: Option<u32>,
+    /// Per-expert FFN intermediate size. Used for MoE bandwidth decomposition.
+    #[serde(default)]
+    pub moe_intermediate_size: Option<u32>,
+    /// Vocabulary size. Used for lm_head + embedding bandwidth estimation.
+    #[serde(default)]
+    pub vocab_size: Option<u32>,
+    /// Shared expert FFN intermediate size (0 if no shared experts).
+    /// Present in Qwen1.5-MoE, DeepSeek-V2, Qwen3.5-MoE.
+    #[serde(default)]
+    pub shared_expert_intermediate_size: Option<u32>,
+}
+
+/// Composition of attention layers in a hybrid model.
+///
+/// Some recent architectures (Qwen3-Next, Jamba, Mamba style hybrids) mix
+/// full attention layers with cheaper linear / state space layers. KV cache
+/// compression schemes like TurboQuant only apply to the full attention
+/// fraction, so we track the split here to compute honest savings.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AttentionLayout {
+    /// Number of full self attention layers (compressible).
+    pub full: u32,
+    /// Number of linear / state space layers (not compressible by KV quant).
+    pub linear: u32,
+}
+
+impl AttentionLayout {
+    pub fn total(&self) -> u32 {
+        self.full + self.linear
+    }
+
+    /// Fraction of layers that are full attention (and therefore compressible
+    /// by KV quant schemes). Returns 1.0 for an all-full model.
+    pub fn compressible_fraction(&self) -> f64 {
+        let total = self.total();
+        if total == 0 {
+            1.0
+        } else {
+            self.full as f64 / total as f64
+        }
+    }
+}
+
+/// KV cache element representation. Controls bytes per element for the
+/// precise KV cache formula and (for TurboQuant) gates on runtime support.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+pub enum KvQuant {
+    /// fp16 / bf16, the inference default for most runtimes.
+    #[default]
+    #[serde(rename = "fp16")]
+    Fp16,
+    /// fp8 KV cache (vLLM, llama.cpp via --cache-type-k fp8 on supported builds).
+    #[serde(rename = "fp8")]
+    Fp8,
+    /// 8 bit integer KV cache (llama.cpp `q8_0`, vLLM int8).
+    #[serde(rename = "q8_0")]
+    Q8_0,
+    /// 4 bit integer KV cache (llama.cpp `q4_0`, vLLM int4).
+    #[serde(rename = "q4_0")]
+    Q4_0,
+    /// TurboQuant (3 bit keys + 2 bit values + Pi/S overhead). Research
+    /// integration, vLLM + CUDA only, not in upstream vLLM yet. Compression
+    /// only applies to full attention layers, so hybrid models see less.
+    /// See https://github.com/0xSero/turboquant
+    #[serde(rename = "tq")]
+    TurboQuant,
+}
+
+impl KvQuant {
+    pub fn label(&self) -> &'static str {
+        match self {
+            KvQuant::Fp16 => "fp16",
+            KvQuant::Fp8 => "fp8",
+            KvQuant::Q8_0 => "q8_0",
+            KvQuant::Q4_0 => "q4_0",
+            KvQuant::TurboQuant => "tq",
+        }
+    }
+
+    /// Bytes per KV element for non-TurboQuant variants. TurboQuant is handled
+    /// per layer because it only affects the full attention slice.
+    pub fn bytes_per_element(&self) -> f64 {
+        match self {
+            KvQuant::Fp16 => 2.0,
+            KvQuant::Fp8 => 1.0,
+            KvQuant::Q8_0 => 1.0,
+            KvQuant::Q4_0 => 0.5,
+            // For the bookkeeping path that doesn't know about layout, assume
+            // ~2.7 bits per element on the compressible slice. The real
+            // computation in `precise_kv_cache_gb` handles the layout split.
+            KvQuant::TurboQuant => 0.34,
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_lowercase().as_str() {
+            "fp16" | "f16" | "bf16" | "default" => Some(KvQuant::Fp16),
+            "fp8" | "f8" => Some(KvQuant::Fp8),
+            "q8" | "q8_0" | "int8" => Some(KvQuant::Q8_0),
+            "q4" | "q4_0" | "int4" => Some(KvQuant::Q4_0),
+            "tq" | "turboquant" => Some(KvQuant::TurboQuant),
+            _ => None,
+        }
+    }
+
+    /// All KV quant options llmfit knows how to estimate. Order is best
+    /// quality (fp16) to most compressed.
+    pub fn all() -> &'static [KvQuant] {
+        &[
+            KvQuant::Fp16,
+            KvQuant::Fp8,
+            KvQuant::Q8_0,
+            KvQuant::Q4_0,
+            KvQuant::TurboQuant,
+        ]
+    }
+}
+
+impl std::fmt::Display for KvQuant {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.label())
+    }
+}
+
+/// Returns true if a model's license matches any in the comma-separated filter string.
+/// Models without a license never match.
+pub fn matches_license_filter(license: &Option<String>, filter: &str) -> bool {
+    let allowed: Vec<String> = filter.split(',').map(|s| s.trim().to_lowercase()).collect();
+    license
+        .as_ref()
+        .map(|l| allowed.contains(&l.to_lowercase()))
+        .unwrap_or(false)
 }
 
 /// A known GGUF download source for a model on HuggingFace.
@@ -271,6 +453,34 @@ impl LlmModel {
         self.format.is_prequantized()
     }
 
+    /// Returns true if the model's attention/KV heads are evenly divisible
+    /// by `tp_size`, meaning it can be split across that many devices.
+    /// TP=1 always returns true.
+    pub fn supports_tp(&self, tp_size: u32) -> bool {
+        if tp_size <= 1 {
+            return true;
+        }
+        let (attn, kv) = self.infer_head_counts();
+        attn % tp_size == 0 && kv % tp_size == 0
+    }
+
+    /// Returns all valid TP degrees in [1..=8] for this model.
+    pub fn valid_tp_sizes(&self) -> Vec<u32> {
+        (1..=8).filter(|&tp| self.supports_tp(tp)).collect()
+    }
+
+    /// Infer attention and KV head counts from metadata or model name heuristics.
+    fn infer_head_counts(&self) -> (u32, u32) {
+        if let (Some(attn), Some(kv)) = (self.num_attention_heads, self.num_key_value_heads) {
+            return (attn, kv);
+        }
+        if let Some(attn) = self.num_attention_heads {
+            return (attn, attn);
+        }
+        // Heuristic: infer from model name
+        infer_heads_from_name(&self.name, self.params_b())
+    }
+
     /// Bytes-per-parameter for the model's quantization level.
     fn quant_bpp(&self) -> f64 {
         quant_bpp(&self.quantization)
@@ -293,17 +503,150 @@ impl LlmModel {
         }
     }
 
+    /// Approximate on-disk size (GB) for a given quantization level.
+    /// This is just the model weights: params_b * bytes_per_param.
+    pub fn estimate_disk_gb(&self, quant: &str) -> f64 {
+        self.params_b() * quant_bpp(quant)
+    }
+
+    /// Effective bytes-per-param for the compute-bound fixed component of MoE
+    /// per-token bandwidth. Captures the ratio of compute time to weight-read
+    /// time for attention-sized matrix operations.
+    /// Calibrated to K=3.2 from RX 6900 XT benchmarks across Q2_K, Q4_K_M, Q8_0.
+    pub const MOE_FIXED_EFFECTIVE_BPP: f64 = 3.2;
+
+    /// Decompose MoE per-token bandwidth into scalable (FFN) and fixed components.
+    ///
+    /// Returns (active_ffn_params_billions, fixed_params_billions) or None if
+    /// insufficient architecture metadata is available.
+    ///
+    /// The fixed component includes: attention layers (Q,K,V,O), MoE router,
+    /// shared experts (if any), output head (lm_head), and embedding table.
+    /// These are compute-bound and don't scale with quantization, so we use
+    /// MOE_FIXED_EFFECTIVE_BPP to convert them to bandwidth-equivalent bytes.
+    pub fn moe_bandwidth_decomposition(&self) -> Option<(f64, f64)> {
+        if !self.is_moe {
+            return None;
+        }
+
+        let hidden = self.hidden_size? as f64;
+        let layers = self.num_hidden_layers? as f64;
+        let active_exp = self.active_experts? as f64;
+        let expert_inter = self.moe_intermediate_size? as f64;
+        let vocab = self.vocab_size? as f64;
+        let n_experts = self.num_experts.unwrap_or(8) as f64;
+
+        // Head dimensions: prefer explicit head_dim, derive from hidden/heads
+        let n_heads = self.num_attention_heads.unwrap_or(1) as f64;
+        let n_kv = self
+            .num_key_value_heads
+            .unwrap_or(self.num_attention_heads.unwrap_or(1)) as f64;
+        let hd = self
+            .head_dim
+            .map(|h| h as f64)
+            .unwrap_or_else(|| hidden / n_heads);
+
+        // Active routed expert FFN params (SwiGLU: 3 projections per expert)
+        let active_ffn = layers * active_exp * 3.0 * hidden * expert_inter;
+
+        // Attention params per layer: Q + K + V + O
+        let attn_per_layer = 2.0 * n_heads * hd * hidden + 2.0 * n_kv * hd * hidden;
+        let attn_total = layers * attn_per_layer;
+
+        // Shared expert FFN (Qwen1.5-MoE, DeepSeek-V2, Qwen3.5)
+        let shared_inter = self.shared_expert_intermediate_size.unwrap_or(0) as f64;
+        let shared_ffn = layers * 3.0 * hidden * shared_inter;
+
+        // Router: one gate projection per layer
+        let router = layers * n_experts * hidden;
+
+        // Output head + embedding (both are hidden × vocab)
+        let lm_head = vocab * hidden;
+        let embedding = vocab * hidden;
+
+        let fixed = attn_total + shared_ffn + router + lm_head + embedding;
+
+        Some((active_ffn / 1_000_000_000.0, fixed / 1_000_000_000.0))
+    }
+
     /// Estimate memory required (GB) at a given quantization and context length.
-    /// Formula: model_weights + KV_cache + runtime_overhead
+    /// Defaults to fp16 KV cache. Use `estimate_memory_gb_with_kv` to override.
     pub fn estimate_memory_gb(&self, quant: &str, ctx: u32) -> f64 {
+        self.estimate_memory_gb_with_kv(quant, ctx, KvQuant::Fp16)
+    }
+
+    /// Estimate memory required (GB) with an explicit KV cache quantization.
+    /// Formula: model_weights + KV_cache + runtime_overhead
+    pub fn estimate_memory_gb_with_kv(&self, quant: &str, ctx: u32, kv: KvQuant) -> f64 {
         let bpp = quant_bpp(quant);
         let params = self.params_b();
         let model_mem = params * bpp;
-        // KV cache: ~0.000008 GB per billion params per context token
-        let kv_cache = 0.000008 * params * ctx as f64;
+        let kv_cache = self.kv_cache_gb(ctx, kv);
         // Runtime overhead (CUDA/Metal context, buffers)
         let overhead = 0.5;
         model_mem + kv_cache + overhead
+    }
+
+    /// KV cache size in GB at the given context length and KV quant.
+    ///
+    /// Uses the precise per layer formula when `num_hidden_layers`,
+    /// `num_key_value_heads`, and `head_dim` are known:
+    ///
+    /// `kv_bytes = 2 * n_layers * n_kv_heads * head_dim * ctx * dtype_bytes`
+    ///
+    /// Falls back to a coarse `params * ctx` approximation when the metadata
+    /// is missing so older catalog entries don't regress.
+    ///
+    /// For TurboQuant, only the full attention slice (per `attention_layout`)
+    /// is compressed. Linear / state space layers stay at fp16.
+    pub fn kv_cache_gb(&self, ctx: u32, kv: KvQuant) -> f64 {
+        let params = self.params_b();
+        let layout = self.effective_attention_layout();
+
+        // Precise path: requires layer count, KV head count, head dim.
+        if let (Some(n_layers), Some(head_dim)) = (self.num_hidden_layers, self.head_dim) {
+            let n_kv_heads = self
+                .num_key_value_heads
+                .or(self.num_attention_heads)
+                .unwrap_or(8);
+
+            let bytes_per_layer =
+                |bpe: f64| -> f64 { 2.0 * n_kv_heads as f64 * head_dim as f64 * ctx as f64 * bpe };
+
+            let total_bytes = match kv {
+                KvQuant::TurboQuant => {
+                    // Compressed slice (full attention) at TQ rate, rest stay fp16.
+                    let full_layers = match layout {
+                        Some(l) => l.full.min(n_layers),
+                        None => n_layers,
+                    };
+                    let linear_layers = n_layers.saturating_sub(full_layers);
+                    bytes_per_layer(KvQuant::TurboQuant.bytes_per_element()) * full_layers as f64
+                        + bytes_per_layer(KvQuant::Fp16.bytes_per_element()) * linear_layers as f64
+                }
+                _ => bytes_per_layer(kv.bytes_per_element()) * n_layers as f64,
+            };
+
+            return total_bytes / 1_073_741_824.0;
+        }
+
+        // Fallback: coarse linear approximation, scaled by KV quant ratio.
+        // Historical formula was 0.000008 * params_b * ctx (assumes fp16).
+        let baseline_fp16 = 0.000008 * params * ctx as f64;
+        let scale = match kv {
+            KvQuant::Fp16 => 1.0,
+            KvQuant::Fp8 | KvQuant::Q8_0 => 0.5,
+            KvQuant::Q4_0 => 0.25,
+            KvQuant::TurboQuant => {
+                // Without layer counts we can't separate full vs linear, so
+                // weight the savings by the layout if available, otherwise
+                // assume an all-full dense transformer.
+                let frac = layout.map(|l| l.compressible_fraction()).unwrap_or(1.0);
+                let tq_ratio = KvQuant::TurboQuant.bytes_per_element() / 2.0;
+                frac * tq_ratio + (1.0 - frac)
+            }
+        };
+        baseline_fp16 * scale
     }
 
     /// Select the best quantization level that fits within a memory budget.
@@ -337,6 +680,15 @@ impl LlmModel {
             }
         }
         None
+    }
+
+    /// Resolved attention layout: explicit metadata if present, otherwise a
+    /// best effort heuristic based on the model name. Returns `None` for
+    /// plain dense transformers (which the KV estimator should treat as
+    /// "all layers compressible").
+    pub fn effective_attention_layout(&self) -> Option<AttentionLayout> {
+        self.attention_layout
+            .or_else(|| infer_attention_layout_from_name(&self.name))
     }
 
     /// For MoE models, compute estimated VRAM for active experts only.
@@ -409,126 +761,16 @@ struct HfModelEntry {
     hf_downloads: u64,
     #[serde(default)]
     hf_likes: u64,
-}
-
-fn parse_parameter_count_hint(parameter_count: &str) -> Option<u64> {
-    let normalized = parameter_count.trim().replace(',', "").to_uppercase();
-
-    if let Some(raw) = normalized.strip_suffix('B') {
-        raw.parse::<f64>()
-            .ok()
-            .map(|value| (value * 1_000_000_000.0).round() as u64)
-    } else if let Some(raw) = normalized.strip_suffix('M') {
-        raw.parse::<f64>()
-            .ok()
-            .map(|value| (value * 1_000_000.0).round() as u64)
-    } else {
-        None
-    }
-}
-
-fn effective_parameters_raw(entry: &HfModelEntry) -> Option<u64> {
-    entry
-        .parameters_raw
-        .or_else(|| parse_parameter_count_hint(&entry.parameter_count))
-}
-
-fn option_max<T: PartialOrd + Copy>(left: Option<T>, right: Option<T>) -> Option<T> {
-    match (left, right) {
-        (Some(left), Some(right)) => Some(if right > left { right } else { left }),
-        (Some(left), None) => Some(left),
-        (None, Some(right)) => Some(right),
-        (None, None) => None,
-    }
-}
-
-fn hf_entry_rank(entry: &HfModelEntry) -> (u64, u64, usize, usize, u8, u64, u64, u32) {
-    (
-        entry.hf_downloads,
-        entry.hf_likes,
-        entry.capabilities.len(),
-        entry.gguf_sources.len(),
-        u8::from(entry.release_date.is_some()),
-        entry.active_parameters.unwrap_or(0),
-        effective_parameters_raw(entry).unwrap_or(0),
-        entry.context_length,
-    )
-}
-
-fn merge_exact_name_entries(
-    mut primary: HfModelEntry,
-    mut secondary: HfModelEntry,
-) -> HfModelEntry {
-    if hf_entry_rank(&secondary) > hf_entry_rank(&primary) {
-        std::mem::swap(&mut primary, &mut secondary);
-    }
-
-    let primary_effective_params = effective_parameters_raw(&primary).unwrap_or(0);
-    let secondary_effective_params = effective_parameters_raw(&secondary).unwrap_or(0);
-
-    if secondary_effective_params > primary_effective_params {
-        primary.parameter_count = secondary.parameter_count.clone();
-    }
-    primary.parameters_raw = option_max(primary.parameters_raw, secondary.parameters_raw);
-    primary.min_ram_gb = primary.min_ram_gb.max(secondary.min_ram_gb);
-    primary.recommended_ram_gb = primary.recommended_ram_gb.max(secondary.recommended_ram_gb);
-    primary.min_vram_gb = option_max(primary.min_vram_gb, secondary.min_vram_gb);
-    primary.context_length = primary.context_length.max(secondary.context_length);
-    primary.is_moe |= secondary.is_moe;
-    primary.num_experts = option_max(primary.num_experts, secondary.num_experts);
-    primary.active_experts = option_max(primary.active_experts, secondary.active_experts);
-    primary.active_parameters = option_max(primary.active_parameters, secondary.active_parameters);
-
-    if primary.provider.is_empty() {
-        primary.provider = secondary.provider.clone();
-    }
-    if primary.quantization.is_empty() {
-        primary.quantization = secondary.quantization.clone();
-    }
-    if primary.use_case.is_empty() {
-        primary.use_case = secondary.use_case.clone();
-    }
-    if primary.format == ModelFormat::default() && secondary.format != ModelFormat::default() {
-        primary.format = secondary.format;
-    }
-    if secondary.release_date.as_deref() > primary.release_date.as_deref() {
-        primary.release_date = secondary.release_date.clone();
-    }
-
-    for capability in secondary.capabilities {
-        if !primary.capabilities.contains(&capability) {
-            primary.capabilities.push(capability);
-        }
-    }
-
-    for source in secondary.gguf_sources {
-        let exists = primary
-            .gguf_sources
-            .iter()
-            .any(|existing| existing.repo == source.repo && existing.provider == source.provider);
-        if !exists {
-            primary.gguf_sources.push(source);
-        }
-    }
-
-    primary
-}
-
-fn dedupe_hf_entries(entries: Vec<HfModelEntry>) -> Vec<HfModelEntry> {
-    let mut deduped_entries: Vec<HfModelEntry> = Vec::with_capacity(entries.len());
-    let mut deduped_indices: HashMap<String, usize> = HashMap::new();
-
-    for entry in entries {
-        let key = entry.name.to_lowercase();
-        if let Some(&idx) = deduped_indices.get(&key) {
-            deduped_entries[idx] = merge_exact_name_entries(deduped_entries[idx].clone(), entry);
-        } else {
-            deduped_indices.insert(key, deduped_entries.len());
-            deduped_entries.push(entry);
-        }
-    }
-
-    deduped_entries
+    #[serde(default)]
+    num_attention_heads: Option<u32>,
+    #[serde(default)]
+    num_key_value_heads: Option<u32>,
+    #[serde(default)]
+    num_hidden_layers: Option<u32>,
+    #[serde(default)]
+    head_dim: Option<u32>,
+    #[serde(default)]
+    license: Option<String>,
 }
 
 const HF_MODELS_JSON: &str = include_str!("../data/hf_models.json");
@@ -543,40 +785,93 @@ impl Default for ModelDatabase {
     }
 }
 
+/// Normalize a model name/ID to a canonical slug for deduplication.
+///
+/// Strips the `org/` prefix, lowercases, and collapses `-`/`_`/`.` so that
+/// `meta-llama/Llama-3.1-8B` and `meta-llama/llama-3.1-8b` compare equal.
+pub(crate) fn canonical_slug(name: &str) -> String {
+    let slug = name.split('/').next_back().unwrap_or(name);
+    slug.to_lowercase().replace(['-', '_', '.'], "")
+}
+
+/// Parse the compile-time embedded JSON into a flat `Vec<LlmModel>`.
+fn load_embedded() -> Vec<LlmModel> {
+    let entries: Vec<HfModelEntry> =
+        serde_json::from_str(HF_MODELS_JSON).expect("Failed to parse embedded hf_models.json");
+    entries
+        .into_iter()
+        .map(|e| {
+            let mut model = LlmModel {
+                name: e.name,
+                provider: e.provider,
+                parameter_count: e.parameter_count,
+                parameters_raw: e.parameters_raw,
+                min_ram_gb: e.min_ram_gb,
+                recommended_ram_gb: e.recommended_ram_gb,
+                min_vram_gb: e.min_vram_gb,
+                quantization: e.quantization,
+                context_length: e.context_length,
+                use_case: e.use_case,
+                is_moe: e.is_moe,
+                num_experts: e.num_experts,
+                active_experts: e.active_experts,
+                active_parameters: e.active_parameters,
+                release_date: e.release_date,
+                gguf_sources: e.gguf_sources,
+                capabilities: e.capabilities,
+                format: e.format,
+                num_attention_heads: e.num_attention_heads,
+                num_key_value_heads: e.num_key_value_heads,
+                num_hidden_layers: e.num_hidden_layers,
+                head_dim: e.head_dim,
+                attention_layout: None,
+                hidden_size: None,
+                moe_intermediate_size: None,
+                vocab_size: None,
+                shared_expert_intermediate_size: None,
+                license: e.license,
+            };
+            model.capabilities = Capability::infer(&model);
+            // Auto-populate attention_layout from name heuristic for known
+            // hybrid families. Explicit metadata still wins (model.attention_layout
+            // stays None until the scraper is taught to read it from config.json).
+            if model.attention_layout.is_none() {
+                model.attention_layout = infer_attention_layout_from_name(&model.name);
+            }
+            model
+        })
+        .collect()
+}
+
 impl ModelDatabase {
+    /// Load only the compile-time embedded model list (no cache).
+    /// Used internally by the updater to determine which models are already known.
+    pub fn embedded() -> Self {
+        ModelDatabase {
+            models: load_embedded(),
+        }
+    }
+
+    /// Load the embedded model list **and** merge any locally cached models.
+    ///
+    /// Cached models are appended after the embedded ones; if an ID already
+    /// exists in the embedded list it is skipped to avoid duplication.
+    /// Silently ignores a missing or corrupt cache file.
     pub fn new() -> Self {
-        let entries: Vec<HfModelEntry> =
-            serde_json::from_str(HF_MODELS_JSON).expect("Failed to parse embedded hf_models.json");
+        let mut models = load_embedded();
 
-        let deduped_entries = dedupe_hf_entries(entries);
+        // Merge cached models (from `llmfit update`) without duplicating.
+        // canonical_slug normalizes org/ prefix, case, and separators so that
+        // e.g. `meta-llama/Llama-3.1-8B` and `meta-llama/llama-3.1-8b` are
+        // treated as the same model.
+        let embedded_keys: std::collections::HashSet<String> =
+            models.iter().map(|m| canonical_slug(&m.name)).collect();
 
-        let models = deduped_entries
-            .into_iter()
-            .map(|e| {
-                let mut model = LlmModel {
-                    name: e.name,
-                    provider: e.provider,
-                    parameter_count: e.parameter_count,
-                    parameters_raw: e.parameters_raw,
-                    min_ram_gb: e.min_ram_gb,
-                    recommended_ram_gb: e.recommended_ram_gb,
-                    min_vram_gb: e.min_vram_gb,
-                    quantization: e.quantization,
-                    context_length: e.context_length,
-                    use_case: e.use_case,
-                    is_moe: e.is_moe,
-                    num_experts: e.num_experts,
-                    active_experts: e.active_experts,
-                    active_parameters: e.active_parameters,
-                    release_date: e.release_date,
-                    gguf_sources: e.gguf_sources,
-                    capabilities: e.capabilities,
-                    format: e.format,
-                };
-                model.capabilities = Capability::infer(&model);
-                model
-            })
-            .collect();
+        for cached in crate::update::load_cache() {
+            if !embedded_keys.contains(&canonical_slug(&cached.name)) {
+                models.push(cached);
+            }
+        }
 
         ModelDatabase { models }
     }
@@ -630,6 +925,174 @@ impl ModelDatabase {
     }
 }
 
+/// Infer an attention layout from the model name for known hybrid families.
+/// Returns `None` for plain dense / all-full transformers (which is the safe
+/// default for the KV cache estimator: assume all layers are compressible).
+///
+/// The numbers here come from the published configs of each family as of
+/// 2026 Q1. They're a best effort starting point and should be replaced
+/// with values scraped from `config.json` whenever the metadata is available.
+pub fn infer_attention_layout_from_name(name: &str) -> Option<AttentionLayout> {
+    let lower = name.to_lowercase();
+
+    // Qwen3-Next series: roughly 1 full attention layer per 4 layers,
+    // remainder are linear / gated DeltaNet style. The A3B (35B total)
+    // variant ships with 10 full out of 40 according to the TurboQuant
+    // benchmark in 0xSero/turboquant.
+    if lower.contains("qwen3-next") || lower.contains("qwen3.5-next") {
+        return Some(AttentionLayout {
+            full: 10,
+            linear: 30,
+        });
+    }
+
+    // Qwen3.5 / Qwen3.6 hybrid models use 1 full attention per 4 layers.
+    // The dense 27B variants have 64 layers → 16 full + 48 linear.
+    // The MoE A3B variants have 40 layers → 10 full + 30 linear.
+    if lower.contains("qwen3.5-") || lower.contains("qwen3.6-") {
+        if lower.contains("-a3b") || lower.contains("-a10b") || lower.contains("-a17b") {
+            return Some(AttentionLayout {
+                full: 10,
+                linear: 30,
+            });
+        }
+        // Dense variants (27B) use 64 layers with same 1:3 ratio
+        return Some(AttentionLayout {
+            full: 16,
+            linear: 48,
+        });
+    }
+
+    // Jamba (Mamba + Transformer hybrid). Jamba 1.5 Mini and Large both
+    // use a 1:7 attention to mamba ratio in their 32 layer blocks.
+    if lower.contains("jamba") {
+        return Some(AttentionLayout {
+            full: 4,
+            linear: 28,
+        });
+    }
+
+    // Zamba2 (Mamba2 + shared attention). Zamba2-7B has 2 shared attention
+    // blocks and 54 mamba layers per the model card.
+    if lower.contains("zamba") {
+        return Some(AttentionLayout {
+            full: 2,
+            linear: 54,
+        });
+    }
+
+    // RWKV / Mamba pure SSM models: no full attention at all. We still
+    // report them so the KV estimator can short circuit. Compressible
+    // fraction is 0, so KV quant savings will correctly show as zero.
+    if lower.contains("mamba") || lower.contains("rwkv") {
+        return Some(AttentionLayout { full: 0, linear: 1 });
+    }
+
+    None
+}
+
+/// Infer attention and KV head counts from the model name and parameter count.
+/// Used as a fallback when explicit head counts are not available in the model metadata.
+fn infer_heads_from_name(name: &str, params_b: f64) -> (u32, u32) {
+    let name_lower = name.to_lowercase();
+
+    // Qwen family
+    if name_lower.contains("qwen") {
+        if params_b > 100.0 {
+            return (128, 16);
+        } else if params_b > 50.0 {
+            return (64, 8);
+        } else if params_b > 25.0 {
+            return (40, 8);
+        } else if params_b > 10.0 {
+            return (40, 8);
+        } else if params_b > 5.0 {
+            return (32, 8);
+        } else {
+            return (16, 4);
+        }
+    }
+
+    // Llama family
+    if name_lower.contains("llama") {
+        if name_lower.contains("scout") || name_lower.contains("maverick") {
+            return (64, 8);
+        } else if params_b > 60.0 {
+            return (64, 8);
+        } else if params_b > 20.0 {
+            return (48, 8);
+        } else if params_b > 5.0 {
+            return (32, 8);
+        } else {
+            return (16, 8);
+        }
+    }
+
+    // DeepSeek family
+    if name_lower.contains("deepseek") {
+        if params_b > 200.0 {
+            return (128, 16);
+        } else if params_b > 50.0 {
+            return (64, 8);
+        } else if params_b > 25.0 {
+            return (40, 8);
+        } else if params_b > 10.0 {
+            return (40, 8);
+        } else {
+            return (32, 8);
+        }
+    }
+
+    // Mistral/Mixtral
+    if name_lower.contains("mistral") || name_lower.contains("mixtral") {
+        if params_b > 100.0 {
+            return (96, 8);
+        } else if params_b > 20.0 {
+            return (32, 8);
+        } else {
+            return (32, 8);
+        }
+    }
+
+    // Gemma
+    if name_lower.contains("gemma") {
+        if params_b > 20.0 {
+            return (32, 16);
+        } else if params_b > 5.0 {
+            return (16, 8);
+        } else {
+            return (8, 4);
+        }
+    }
+
+    // Phi
+    if name_lower.contains("phi") {
+        if params_b > 10.0 {
+            return (40, 10);
+        } else {
+            return (32, 8);
+        }
+    }
+
+    // MiniMax
+    if name_lower.contains("minimax") {
+        return (48, 8);
+    }
+
+    // Default: common pattern based on param count
+    if params_b > 100.0 {
+        (128, 16)
+    } else if params_b > 50.0 {
+        (64, 8)
+    } else if params_b > 20.0 {
+        (32, 8)
+    } else if params_b > 5.0 {
+        (32, 8)
+    } else {
+        (16, 4)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -646,6 +1109,48 @@ mod tests {
         assert_eq!(quant_speed_multiplier("mlx-8bit"), 0.85);
         assert_eq!(quant_quality_penalty("mlx-4bit"), -4.0);
         assert_eq!(quant_quality_penalty("mlx-8bit"), 0.0);
+    }
+
+    #[test]
+    fn test_ud_quant_mappings() {
+        // UD-Q2_K_XL should match Q2_K values (not hit the default fallback)
+        assert_eq!(quant_bpp("UD-Q2_K_XL"), quant_bpp("Q2_K"));
+        assert_eq!(
+            quant_bytes_per_param("UD-Q2_K_XL"),
+            quant_bytes_per_param("Q2_K")
+        );
+        assert_eq!(
+            quant_speed_multiplier("UD-Q2_K_XL"),
+            quant_speed_multiplier("Q2_K")
+        );
+        assert_eq!(
+            quant_quality_penalty("UD-Q2_K_XL"),
+            quant_quality_penalty("Q2_K")
+        );
+
+        // UD-Q4_K_M should match Q4_K_M values
+        assert_eq!(quant_bpp("UD-Q4_K_M"), quant_bpp("Q4_K_M"));
+        assert_eq!(
+            quant_bytes_per_param("UD-Q4_K_M"),
+            quant_bytes_per_param("Q4_K_M")
+        );
+
+        // UD-Q8_K_S should match Q8_0 values (bpp table)
+        assert_eq!(quant_bpp("UD-Q8_K_S"), quant_bpp("Q8_0"));
+        assert_eq!(
+            quant_bytes_per_param("UD-Q8_K_S"),
+            quant_bytes_per_param("Q8_0")
+        );
+
+        // Verify no longer hitting defaults
+        assert!(
+            quant_bpp("UD-Q2_K_XL") < 0.5,
+            "UD-Q2_K_XL bpp should be 0.37, not default 0.58"
+        );
+        assert!(
+            quant_bytes_per_param("UD-Q2_K_XL") < 0.4,
+            "UD-Q2_K_XL bytes should be 0.25, not default 0.5"
+        );
     }
 
     #[test]
@@ -669,6 +1174,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
 
         // Large budget should return mlx-8bit (best in MLX hierarchy)
@@ -740,6 +1255,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         assert_eq!(model.params_b(), 7.0);
     }
@@ -765,6 +1290,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         assert_eq!(model.params_b(), 13.0);
     }
@@ -790,6 +1325,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         assert_eq!(model.params_b(), 0.5);
     }
@@ -815,6 +1360,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
 
         let mem = model.estimate_memory_gb("Q4_K_M", 4096);
@@ -848,6 +1403,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
 
         // Large budget should return best quant
@@ -887,6 +1452,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         assert!(dense_model.moe_active_vram_gb().is_none());
 
@@ -910,6 +1485,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         let vram = moe_model.moe_active_vram_gb();
         assert!(vram.is_some());
@@ -941,6 +1526,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         assert!(dense_model.moe_offloaded_ram_gb().is_none());
 
@@ -964,6 +1559,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         let offloaded = moe_model.moe_offloaded_ram_gb();
         assert!(offloaded.is_some());
@@ -997,6 +1602,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         assert_eq!(UseCase::from_model(&model), UseCase::Coding);
     }
@@ -1022,6 +1637,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         assert_eq!(UseCase::from_model(&model), UseCase::Embedding);
     }
@@ -1047,6 +1672,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         assert_eq!(UseCase::from_model(&model), UseCase::Reasoning);
     }
@@ -1061,124 +1696,6 @@ mod tests {
         let models = db.get_all_models();
         // Should have loaded models from embedded JSON
         assert!(!models.is_empty());
-    }
-
-    #[test]
-    fn test_dedupe_hf_entries_merges_duplicate_metadata() {
-        let deduped = dedupe_hf_entries(vec![
-            HfModelEntry {
-                name: "Example/Model".to_string(),
-                provider: "Example".to_string(),
-                parameter_count: "18B".to_string(),
-                parameters_raw: Some(18_000_000_000),
-                min_ram_gb: 10.0,
-                recommended_ram_gb: 18.0,
-                min_vram_gb: Some(8.0),
-                quantization: "Q4_K_M".to_string(),
-                context_length: 32768,
-                use_case: "General".to_string(),
-                is_moe: false,
-                num_experts: None,
-                active_experts: None,
-                active_parameters: None,
-                release_date: Some("2026-01-01".to_string()),
-                gguf_sources: vec![GgufSource {
-                    repo: "example/example-model-gguf".to_string(),
-                    provider: "example".to_string(),
-                }],
-                capabilities: vec![Capability::Vision],
-                format: ModelFormat::Safetensors,
-                hf_downloads: 10_000,
-                hf_likes: 500,
-            },
-            HfModelEntry {
-                name: "Example/Model".to_string(),
-                provider: "Example".to_string(),
-                parameter_count: "20B".to_string(),
-                parameters_raw: Some(20_000_000_000),
-                min_ram_gb: 12.0,
-                recommended_ram_gb: 24.0,
-                min_vram_gb: Some(10.0),
-                quantization: "Q4_K_M".to_string(),
-                context_length: 65536,
-                use_case: "General".to_string(),
-                is_moe: true,
-                num_experts: Some(64),
-                active_experts: Some(8),
-                active_parameters: Some(3_000_000_000),
-                release_date: Some("2026-02-01".to_string()),
-                gguf_sources: vec![GgufSource {
-                    repo: "unsloth/example-model-gguf".to_string(),
-                    provider: "unsloth".to_string(),
-                }],
-                capabilities: vec![Capability::ToolUse],
-                format: ModelFormat::Gguf,
-                hf_downloads: 100,
-                hf_likes: 10,
-            },
-        ]);
-
-        assert_eq!(deduped.len(), 1);
-        let merged = &deduped[0];
-        assert_eq!(merged.parameter_count, "20B");
-        assert_eq!(merged.parameters_raw, Some(20_000_000_000));
-        assert_eq!(merged.min_ram_gb, 12.0);
-        assert_eq!(merged.recommended_ram_gb, 24.0);
-        assert_eq!(merged.min_vram_gb, Some(10.0));
-        assert_eq!(merged.context_length, 65536);
-        assert!(merged.is_moe);
-        assert_eq!(merged.num_experts, Some(64));
-        assert_eq!(merged.active_experts, Some(8));
-        assert_eq!(merged.active_parameters, Some(3_000_000_000));
-        assert!(merged.capabilities.contains(&Capability::Vision));
-        assert!(merged.capabilities.contains(&Capability::ToolUse));
-        assert_eq!(merged.gguf_sources.len(), 2);
-        assert!(
-            merged
-                .gguf_sources
-                .iter()
-                .any(|source| source.repo == "example/example-model-gguf")
-        );
-        assert!(
-            merged
-                .gguf_sources
-                .iter()
-                .any(|source| source.repo == "unsloth/example-model-gguf")
-        );
-    }
-
-    #[test]
-    fn test_model_database_deduplicates_exact_name_collisions() {
-        let db = ModelDatabase::new();
-        let matches: Vec<_> = db
-            .get_all_models()
-            .iter()
-            .filter(|m| m.name == "Qwen/Qwen3-Coder-Next")
-            .collect();
-
-        assert_eq!(
-            matches.len(),
-            1,
-            "duplicate exact model names should be collapsed"
-        );
-
-        let model = matches[0];
-        assert_eq!(model.use_case, "Code generation and completion");
-        assert_eq!(model.parameter_count, "80B");
-        assert_eq!(model.parameters_raw, Some(80_000_000_000));
-        assert_eq!(model.min_ram_gb, 44.8);
-        assert_eq!(model.recommended_ram_gb, 74.6);
-        assert_eq!(model.min_vram_gb, Some(41.0));
-        assert!(model.is_moe);
-        assert_eq!(model.num_experts, Some(64));
-        assert_eq!(model.active_experts, Some(4));
-        assert_eq!(model.active_parameters, Some(3_000_000_000));
-        assert!(
-            model
-                .gguf_sources
-                .iter()
-                .any(|source| source.repo == "unsloth/Qwen3-Coder-Next-GGUF")
-        );
     }
 
     #[test]
@@ -1242,6 +1759,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         let caps = Capability::infer(&model);
         assert!(caps.contains(&Capability::Vision));
@@ -1270,6 +1797,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         let caps = Capability::infer(&model);
         assert!(caps.contains(&Capability::ToolUse));
@@ -1297,6 +1834,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         let caps = Capability::infer(&model);
         assert!(caps.is_empty());
@@ -1323,6 +1870,16 @@ mod tests {
             gguf_sources: vec![],
             capabilities: vec![Capability::Vision],
             format: ModelFormat::default(),
+            num_attention_heads: None,
+            num_key_value_heads: None,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
         };
         let caps = Capability::infer(&model);
         // Should keep the explicit Vision and not duplicate it
@@ -1393,7 +1950,7 @@ mod tests {
             "meta-llama/Llama-3.3-70B-Instruct",
             "Qwen/Qwen2.5-7B-Instruct",
             "Qwen/Qwen2.5-Coder-7B-Instruct",
-            "meta-llama/Meta-Llama-3-8B-Instruct",
+            "meta-llama/Llama-3.1-8B-Instruct",
             "mistralai/Mistral-7B-Instruct-v0.3",
         ];
         for name in &expected_with_gguf {
@@ -1435,6 +1992,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // Requires network access to populate GGUF sources at build time
     fn test_catalog_has_significant_gguf_coverage() {
         let db = ModelDatabase::new();
         let total = db.get_all_models().len();
@@ -1452,5 +2010,297 @@ mod tests {
             with_gguf,
             total
         );
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // Tensor parallelism tests
+    // ────────────────────────────────────────────────────────────────────
+
+    fn tp_test_model(
+        name: &str,
+        params_b: f64,
+        attn_heads: Option<u32>,
+        kv_heads: Option<u32>,
+    ) -> LlmModel {
+        LlmModel {
+            name: name.to_string(),
+            provider: "Test".to_string(),
+            parameter_count: format!("{:.0}B", params_b),
+            parameters_raw: Some((params_b * 1_000_000_000.0) as u64),
+            min_ram_gb: 4.0,
+            recommended_ram_gb: 8.0,
+            min_vram_gb: Some(4.0),
+            quantization: "Q4_K_M".to_string(),
+            context_length: 4096,
+            use_case: "General".to_string(),
+            is_moe: false,
+            num_experts: None,
+            active_experts: None,
+            active_parameters: None,
+            release_date: None,
+            gguf_sources: vec![],
+            capabilities: vec![],
+            format: ModelFormat::default(),
+            num_attention_heads: attn_heads,
+            num_key_value_heads: kv_heads,
+            num_hidden_layers: None,
+            head_dim: None,
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
+        }
+    }
+
+    #[test]
+    fn test_supports_tp_with_explicit_heads() {
+        let model = tp_test_model("Test-8B", 8.0, Some(32), Some(8));
+        assert!(model.supports_tp(1));
+        assert!(model.supports_tp(2));
+        assert!(model.supports_tp(4));
+        assert!(model.supports_tp(8));
+        assert!(!model.supports_tp(3)); // 32 % 3 != 0
+        assert!(!model.supports_tp(5));
+    }
+
+    #[test]
+    fn test_supports_tp_always_true_for_1() {
+        let model = tp_test_model("Tiny", 1.0, None, None);
+        assert!(model.supports_tp(1));
+    }
+
+    #[test]
+    fn test_valid_tp_sizes_32_8() {
+        let model = tp_test_model("Test", 8.0, Some(32), Some(8));
+        let sizes = model.valid_tp_sizes();
+        assert!(sizes.contains(&1));
+        assert!(sizes.contains(&2));
+        assert!(sizes.contains(&4));
+        assert!(sizes.contains(&8));
+        assert!(!sizes.contains(&3));
+    }
+
+    #[test]
+    fn test_valid_tp_sizes_48_heads() {
+        // 48 attn heads, 8 kv heads — TP must divide both
+        let model = tp_test_model("Llama-32B", 32.0, Some(48), Some(8));
+        assert!(model.supports_tp(2)); // 48%2==0, 8%2==0
+        assert!(!model.supports_tp(3)); // 48%3==0 but 8%3!=0
+        assert!(model.supports_tp(4)); // 48%4==0, 8%4==0
+        assert!(model.supports_tp(8)); // 48%8==0, 8%8==0
+    }
+
+    #[test]
+    fn test_infer_heads_from_name_qwen() {
+        let (attn, kv) = infer_heads_from_name("Qwen2.5-72B-Instruct", 72.0);
+        assert_eq!(attn, 64);
+        assert_eq!(kv, 8);
+    }
+
+    #[test]
+    fn test_infer_heads_from_name_llama() {
+        let (attn, kv) = infer_heads_from_name("Llama-3.1-8B", 8.0);
+        assert_eq!(attn, 32);
+        assert_eq!(kv, 8);
+    }
+
+    #[test]
+    fn test_infer_heads_from_name_deepseek() {
+        let (attn, kv) = infer_heads_from_name("DeepSeek-V3", 671.0);
+        assert_eq!(attn, 128);
+        assert_eq!(kv, 16);
+    }
+
+    #[test]
+    fn test_supports_tp_with_inferred_heads() {
+        // No explicit heads — should infer from name
+        let model = tp_test_model("Llama-3.1-70B", 70.0, None, None);
+        assert!(model.supports_tp(2));
+        assert!(model.supports_tp(4));
+        assert!(model.supports_tp(8));
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // KV cache formula + KvQuant + AttentionLayout
+    // ────────────────────────────────────────────────────────────────────
+
+    fn kv_test_model(name: &str) -> LlmModel {
+        // Roughly modelled on Llama-3.1-8B: 32 layers, 32 heads, 8 KV heads,
+        // head_dim 128.
+        LlmModel {
+            name: name.to_string(),
+            provider: "Test".to_string(),
+            parameter_count: "8B".to_string(),
+            parameters_raw: Some(8_000_000_000),
+            min_ram_gb: 4.0,
+            recommended_ram_gb: 8.0,
+            min_vram_gb: Some(4.0),
+            quantization: "Q4_K_M".to_string(),
+            context_length: 8192,
+            use_case: "General".to_string(),
+            is_moe: false,
+            num_experts: None,
+            active_experts: None,
+            active_parameters: None,
+            release_date: None,
+            gguf_sources: vec![],
+            capabilities: vec![],
+            format: ModelFormat::default(),
+            num_attention_heads: Some(32),
+            num_key_value_heads: Some(8),
+            num_hidden_layers: Some(32),
+            head_dim: Some(128),
+            attention_layout: None,
+            hidden_size: None,
+            moe_intermediate_size: None,
+            vocab_size: None,
+            shared_expert_intermediate_size: None,
+            license: None,
+        }
+    }
+
+    #[test]
+    fn test_kv_quant_from_str_round_trip() {
+        for kv in KvQuant::all() {
+            let parsed = KvQuant::parse(kv.label()).expect("label should parse");
+            assert_eq!(parsed, *kv);
+        }
+        assert_eq!(KvQuant::parse("FP16"), Some(KvQuant::Fp16));
+        assert_eq!(KvQuant::parse("Q4_0"), Some(KvQuant::Q4_0));
+        assert_eq!(KvQuant::parse("turboquant"), Some(KvQuant::TurboQuant));
+        assert_eq!(KvQuant::parse("nope"), None);
+    }
+
+    #[test]
+    fn test_kv_cache_precise_formula_matches_hand_calc() {
+        // 32 layers * 2 (K+V) * 8 KV heads * 128 head_dim * 8192 ctx * 2 (fp16)
+        // = 1_073_741_824 bytes ≈ 1.0 GB
+        let model = kv_test_model("Llama-3.1-8B");
+        let kv = model.kv_cache_gb(8192, KvQuant::Fp16);
+        assert!((kv - 1.0).abs() < 0.05, "expected ~1.0 GB, got {:.4}", kv);
+    }
+
+    #[test]
+    fn test_kv_cache_scales_with_quant() {
+        let model = kv_test_model("test");
+        let fp16 = model.kv_cache_gb(8192, KvQuant::Fp16);
+        let q8 = model.kv_cache_gb(8192, KvQuant::Q8_0);
+        let q4 = model.kv_cache_gb(8192, KvQuant::Q4_0);
+        // q8 should be ~half fp16, q4 should be ~quarter
+        assert!((q8 / fp16 - 0.5).abs() < 0.01);
+        assert!((q4 / fp16 - 0.25).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_kv_cache_fallback_when_metadata_missing() {
+        // No layer/head_dim metadata: should fall back to the linear approx
+        // and still scale with KvQuant.
+        let mut model = kv_test_model("nameless");
+        model.num_hidden_layers = None;
+        model.head_dim = None;
+        let fp16 = model.kv_cache_gb(8192, KvQuant::Fp16);
+        let q4 = model.kv_cache_gb(8192, KvQuant::Q4_0);
+        assert!(fp16 > 0.0);
+        assert!(q4 < fp16);
+    }
+
+    #[test]
+    fn test_turboquant_full_attention_uses_compressed_rate() {
+        // Pure dense (no layout): TQ should compress every layer.
+        let model = kv_test_model("dense");
+        let fp16 = model.kv_cache_gb(8192, KvQuant::Fp16);
+        let tq = model.kv_cache_gb(8192, KvQuant::TurboQuant);
+        let ratio = tq / fp16;
+        // ~0.34 / 2.0 = 0.17 of fp16
+        assert!(
+            (0.10..=0.25).contains(&ratio),
+            "TQ ratio on dense should be ~0.17, got {:.3}",
+            ratio
+        );
+    }
+
+    #[test]
+    fn test_turboquant_hybrid_only_compresses_full_attention() {
+        // 10 full + 30 linear layers (Qwen3.5-A3B style).
+        let mut model = kv_test_model("hybrid");
+        model.num_hidden_layers = Some(40);
+        model.attention_layout = Some(AttentionLayout {
+            full: 10,
+            linear: 30,
+        });
+        let fp16 = model.kv_cache_gb(8192, KvQuant::Fp16);
+        let tq = model.kv_cache_gb(8192, KvQuant::TurboQuant);
+        let savings = 1.0 - tq / fp16;
+        // Honest savings should be ~0.83 * 0.25 ≈ 21% (only the 10/40 slice
+        // is compressed by ~83%). Allow a wide tolerance because the constants
+        // are deliberately conservative.
+        assert!(
+            (0.10..=0.30).contains(&savings),
+            "expected ~20% honest savings on hybrid model, got {:.3}",
+            savings
+        );
+        // And it must be far from the dense headline of ~83%.
+        assert!(savings < 0.5);
+    }
+
+    #[test]
+    fn test_attention_layout_compressible_fraction() {
+        let dense = AttentionLayout {
+            full: 32,
+            linear: 0,
+        };
+        assert!((dense.compressible_fraction() - 1.0).abs() < 0.0001);
+
+        let hybrid = AttentionLayout {
+            full: 10,
+            linear: 30,
+        };
+        assert!((hybrid.compressible_fraction() - 0.25).abs() < 0.0001);
+
+        let pure_ssm = AttentionLayout {
+            full: 0,
+            linear: 64,
+        };
+        assert!((pure_ssm.compressible_fraction() - 0.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_infer_attention_layout_qwen3_next() {
+        let layout = infer_attention_layout_from_name("Qwen/Qwen3-Next-80B-A3B");
+        assert!(layout.is_some());
+        let layout = layout.unwrap();
+        assert!(layout.full > 0 && layout.linear > 0);
+        assert!(layout.compressible_fraction() < 0.5);
+    }
+
+    #[test]
+    fn test_infer_attention_layout_dense_returns_none() {
+        assert!(infer_attention_layout_from_name("meta-llama/Llama-3.1-8B").is_none());
+        assert!(infer_attention_layout_from_name("Qwen/Qwen2.5-7B").is_none());
+    }
+
+    #[test]
+    fn test_effective_attention_layout_prefers_explicit() {
+        let mut model = kv_test_model("Qwen/Qwen3-Next-80B");
+        // Explicit metadata should override the heuristic
+        model.attention_layout = Some(AttentionLayout {
+            full: 5,
+            linear: 35,
+        });
+        let resolved = model.effective_attention_layout().unwrap();
+        assert_eq!(resolved.full, 5);
+        assert_eq!(resolved.linear, 35);
+    }
+
+    #[test]
+    fn test_estimate_memory_with_kv_q8_smaller_than_fp16() {
+        let model = kv_test_model("Llama-3.1-8B");
+        let fp16_total = model.estimate_memory_gb_with_kv("Q4_K_M", 32_768, KvQuant::Fp16);
+        let q8_total = model.estimate_memory_gb_with_kv("Q4_K_M", 32_768, KvQuant::Q8_0);
+        let q4_total = model.estimate_memory_gb_with_kv("Q4_K_M", 32_768, KvQuant::Q4_0);
+        assert!(q8_total < fp16_total);
+        assert!(q4_total < q8_total);
     }
 }
